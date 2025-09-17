@@ -6,3 +6,7 @@ app/DataMonitor/backups/
 
 # large binaries
 Models/ffmpeg/
+
+# misc
+__pycache__/
+*.pyc
