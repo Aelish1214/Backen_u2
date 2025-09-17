@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: inai-api
+  labels: { app: inai-api }
+spec:
+  type: LoadBalancer
+  selector: { app: inai-api }
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
