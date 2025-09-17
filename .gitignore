@@ -1,12 +1,33 @@
-﻿# secrets
+﻿@'
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Envs
+venv/
+.venv/
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+
+# Data / big stuff
+Models/ffmpeg/
+*.dll
+*.lib
+*.bin
+
+# Secrets
 .env
 *.env
 app/DataMonitor/*.csv
 app/DataMonitor/backups/
-
-# large binaries
-Models/ffmpeg/
-
-# misc
-__pycache__/
-*.pyc
+'@ | Out-File -Encoding utf8 .gitignore
