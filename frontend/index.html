@@ -655,7 +655,8 @@
     </div>
 
     <div id="controls">
-      <input type="text" id="messageInput" placeholder="Try: 'show me construction structure' or 'generate PDF report'" />
+      <input type="text" id="messageInput"
+        placeholder="Try: 'show me construction structure' or 'generate PDF report'" />
       <button id="sendBtn">Send</button>
       <button id="mic-btn">🎤</button>
       <button id="attachBtn">➕</button>
@@ -722,12 +723,12 @@
   </div>
 
   <script>
-    const SERVER_BASE = "http://192.168.1.102:5200";
+    const SERVER_BASE = "http://192.168.1.106:2027";
 
     let currentFileData = null;
     let currentFileType = null;
 
-    // Fixed AudioManager class with proper audio chunk handling (kept from first file)
+    // Fixed AudioManager class with proper audio chunk handling
     class AudioManager {
       constructor() {
         this.audioContext = null;
@@ -908,7 +909,7 @@
       }
     }
 
-    // Streaming client (base from first file, merged with URL/assistant handling from second file)
+    // Streaming client
     class INAIStreamingClient {
       constructor(userId) {
         this.userId = userId;
@@ -1098,17 +1099,17 @@
                 // Show mode switch notification
                 const notification = document.createElement('div');
                 notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1a4a1a;
-            color: #00ff88;
-            padding: 10px 20px;
-            border-radius: 8px;
-            z-index: 1000;
-            animation: fadeInOut 3s forwards;
-        `;
+                            position: fixed;
+                            top: 20px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: #1a4a1a;
+                            color: #00ff88;
+                            padding: 10px 20px;
+                            border-radius: 8px;
+                            z-index: 1000;
+                            animation: fadeInOut 3s forwards;
+                        `;
                 notification.textContent = `Switched to ${msg.data.new_mode} mode`;
                 document.body.appendChild(notification);
 
@@ -1119,7 +1120,7 @@
                 this.currentResponseElement.className = 'bot complete';
                 let processedContent = processMessageForMedia(this.mediaBuffer);
 
-                // Enhanced URL handling (from second file)
+                // Enhanced URL handling
                 const assistantData = msg.data.assistant_data || null;
                 const finalUrl = (assistantData && assistantData.url) ? assistantData.url : (msg.data.url || null);
                 const urlType = assistantData?.type || 'general';
@@ -1189,23 +1190,33 @@
 
         this.audioManager.stopAll();
 
+        // For AI assistant mode, let backend handle voice selection
+        const finalVoiceModel = mode === 'ai_assistant' ? 'assistant' : voiceModel;
+
         if (this.isConnected && this.dataChannel.readyState === 'open') {
           try {
             this.dataChannel.send(JSON.stringify({
-              text, mode, voice_model: voiceModel, stream: true, timestamp: new Date().toISOString()
+              text,
+              mode,
+              voice_model: finalVoiceModel,
+              stream: true,
+              timestamp: new Date().toISOString()
             }));
             return { status: 'sent', method: 'webrtc' };
           } catch (err) {
             console.error('WebRTC send error:', err);
-            return this.sendMessageHTTP(text, mode, voiceModel);
+            return this.sendMessageHTTP(text, mode, finalVoiceModel);
           }
         } else {
-          return this.sendMessageHTTP(text, mode, voiceModel);
+          return this.sendMessageHTTP(text, mode, finalVoiceModel);
         }
       }
 
       async sendMessageHTTP(text, mode = 'friend', voiceModel = 'female1') {
         try {
+          // For AI assistant mode, let backend handle voice selection
+          const finalVoiceModel = mode === 'ai_assistant' ? 'assistant' : voiceModel;
+
           const res = await fetch(`${SERVER_BASE}/webrtc/text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1213,7 +1224,7 @@
               user_id: this.userId,
               text,
               mode,
-              voice_model: voiceModel,
+              voice_model: finalVoiceModel,
               stream: false
             })
           });
@@ -1337,23 +1348,23 @@
           .replace(/\s+/g, '');
 
         return `<div class="generated-media pdf-media">
-          <h4>📄 PDF Generated Successfully</h4>
-          <div class="pdf-preview">
-              <div class="pdf-icon">📄</div>
-              <div class="pdf-details">
-                  <div><strong>File:</strong> ${filename}</div>
-                  <div><strong>Size:</strong> ${size}</div>
-                  <div>
-                    <a href="${SERVER_BASE}${downloadUrl}" 
-                       class="download-link" 
-                       download="${filename}"
-                       onclick="handleDirectDownload(event, '${filename}')">
-                      ⬇️ Download ${filename}
-                    </a>
-                  </div>
-              </div>
-          </div>
-      </div>`;
+            <h4>📄 PDF Generated Successfully</h4>
+            <div class="pdf-preview">
+                <div class="pdf-icon">📄</div>
+                <div class="pdf-details">
+                    <div><strong>File:</strong> ${filename}</div>
+                    <div><strong>Size:</strong> ${size}</div>
+                    <div>
+                        <a href="${SERVER_BASE}${downloadUrl}" 
+                           class="download-link" 
+                           download="${filename}"
+                           onclick="handleDirectDownload(event, '${filename}')">
+                          ⬇️ Download ${filename}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>`;
       });
 
       const imageRegex = /📷\s*\*\*Generated.*?Image.*?\*\*:\s*`([^`]+)`/gi;
@@ -1361,38 +1372,38 @@
 
       processedMsg = processedMsg.replace(imageRegex, (match, filename) => {
         return `<div class="generated-media image-media">
-          <h4>📷 Generated Image</h4>
-          <img src="${SERVER_BASE}/generated/${filename}" 
-               alt="Generated Image" 
-               class="generated-image"
-               onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
-          <div>
-            <a href="${SERVER_BASE}/download/${filename}" 
-               class="download-link" 
-               download="${filename}"
-               onclick="handleDirectDownload(event, '${filename}')">
-              ⬇️ Download ${filename}
-            </a>
-          </div>
-      </div>`;
+            <h4>📷 Generated Image</h4>
+            <img src="${SERVER_BASE}/generated/${filename}" 
+                 alt="Generated Image" 
+                 class="generated-image"
+                 onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
+            <div>
+                <a href="${SERVER_BASE}/download/${filename}" 
+                   class="download-link" 
+                   download="${filename}"
+                   onclick="handleDirectDownload(event, '${filename}')">
+                  ⬇️ Download ${filename}
+                </a>
+            </div>
+        </div>`;
       });
 
       processedMsg = processedMsg.replace(diagramRegex, (match, filename) => {
         return `<div class="generated-media diagram-media">
-          <h4>📊 Generated Diagram</h4>
-          <img src="${SERVER_BASE}/generated/${filename}" 
-               alt="Generated Diagram" 
-               class="generated-image"
-               onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
-          <div>
-            <a href="${SERVER_BASE}/download/${filename}" 
-               class="download-link" 
-               download="${filename}"
-               onclick="handleDirectDownload(event, '${filename}')">
-              ⬇️ Download ${filename}
-            </a>
-          </div>
-      </div>`;
+            <h4>📊 Generated Diagram</h4>
+            <img src="${SERVER_BASE}/generated/${filename}" 
+                 alt="Generated Diagram" 
+                 class="generated-image"
+                 onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
+            <div>
+                <a href="${SERVER_BASE}/download/${filename}" 
+                   class="download-link" 
+                   download="${filename}"
+                   onclick="handleDirectDownload(event, '${filename}')">
+                  ⬇️ Download ${filename}
+                </a>
+            </div>
+        </div>`;
       });
 
       return processedMsg;
@@ -1425,7 +1436,7 @@
         align-items: center;
         z-index: 5000;
         cursor: pointer;
-      `;
+    `;
 
       const img = document.createElement('img');
       img.src = url;
@@ -1435,7 +1446,7 @@
         object-fit: contain;
         border-radius: 8px;
         cursor: default;
-      `;
+    `;
 
       const closeBtn = document.createElement('button');
       closeBtn.innerHTML = '✕';
@@ -1451,7 +1462,7 @@
         border-radius: 50%;
         font-size: 18px;
         cursor: pointer;
-      `;
+    `;
 
       modal.appendChild(img);
       modal.appendChild(closeBtn);
@@ -1523,11 +1534,11 @@
           'audio': '🎙️'
         };
         fileInfo.innerHTML = `
-          <div style="font-size:48px; margin-bottom:10px;">
-             ${icons[fileType] || '📎'}
-          </div>
-          <div><strong>${file.name}</strong></div>
-          <div>${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+            <div style="font-size:48px; margin-bottom:10px;">
+                ${icons[fileType] || '📎'}
+            </div>
+            <div><strong>${file.name}</strong></div>
+            <div>${(file.size / 1024 / 1024).toFixed(2)} MB</div>
         `;
         preview.appendChild(fileInfo);
       }
@@ -1550,6 +1561,8 @@
       document.getElementById("pdfInput").value = '';
       document.getElementById("imageInput").value = '';
       document.getElementById("audioInput").value = '';
+      document.getElementById("docxInput").value = '';
+      document.getElementById("excelInput").value = '';
     }
 
     async function processFileUpload() {
@@ -1619,13 +1632,13 @@
         currentFileType = null;
         document.getElementById("pdfInput").value = '';
         document.getElementById("imageInput").value = '';
+        document.getElementById("audioInput").value = '';
         document.getElementById("docxInput").value = '';
         document.getElementById("excelInput").value = '';
-        document.getElementById("audioInput").value = '';
       }
     }
 
-    // Camera functions (kept from first file)
+    // Camera functions
     let cameraStreamTrack;
 
     function openCamera() {
@@ -1743,7 +1756,7 @@
         }
 
         messageTimeout = setTimeout(() => {
-          const switchMatch = text.toLowerCase().match(/^switch into (love|info|elder|friend)$/i);
+          const switchMatch = text.toLowerCase().match(/^switch into (love|info|elder|friend|ai_assistant)$/i);
           if (switchMatch) {
             const newMode = switchMatch[1].toLowerCase();
             mode.value = newMode;
@@ -1754,12 +1767,12 @@
           }
 
           const selectedMode = mode.value;
-          const selectedVoice = voiceModel.value;
+          // For AI assistant mode, let backend handle voice
+          const selectedVoice = selectedMode === 'ai_assistant' ? 'assistant' : voiceModel.value;
           messageInput.value = "";
           streamingClient.sendMessage(text, selectedMode, selectedVoice);
         }, 100);
       }
-
       sendBtn.onclick = handleMessage;
       messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') sendBtn.click();

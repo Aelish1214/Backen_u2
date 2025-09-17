@@ -241,16 +241,19 @@ class WebRTCHandler:
         """Get appropriate voice based on voice model and conversation mode"""
         if mode == "ai_assistant":
             return "hi-IN-AaravNeural"
-        
+           
+           
+            
         # Voice model mapping
         voice_mapping = {
             "female1": "en-IN-NeerjaExpressiveNeural",
-            "female2": "en-US-JennyNeural", 
-            "male": "en-IN-PrabhatNeural"
+            "female2": "hi-IN-AnanyaNeural", 
+            "male": "hi-IN-ArjunNeural"
         }
-        
-        # Return the selected voice model
-        return voice_mapping.get(voice_model, voice_mapping["female1"])
+         
+        selected_voice = voice_mapping.get(voice_model, voice_mapping["female1"])
+        print(f"[TTS] Selected voice for mode {mode}: {selected_voice}")
+        return selected_voice
 
     async def generate_and_stream_tts_early(self, user_id: str, text_generator, voice_model: str = "female1", mode: str = "friend"):
         """Generate TTS as text comes in, with early start for low latency"""
@@ -354,7 +357,6 @@ class WebRTCHandler:
             )
 
             audio_data = b""
-            tts_engine = self.assistant_tts if use_assistant_tts else self.tts
             
             # Validate TTS parameters before generation
             if not text or not text.strip():
@@ -367,44 +369,77 @@ class WebRTCHandler:
             
             self.logger.info(f"[TTS] Generating audio for {user_id}: '{text[:50]}...' with voice: {voice}")
             
-            async for chunk_data in tts_engine.generate_tts_stream(text, user_id, voice):
-                # Check for interrupt during generation
-                if self.is_user_interrupted(user_id):
-                    self.logger.info(f"[TTS] TTS generation interrupted for {user_id}")
-                    return
-                
-                if chunk_data["type"] == "audio" and chunk_data.get("status") == "ok":
-                    data = chunk_data["data"]
+            # Use assistant TTS engine for assistant mode
+            if use_assistant_tts:
+                async for chunk_data in self.assistant_tts.generate_tts_stream_assistant(text, user_id, voice):
+                    # Check for interrupt during generation
+                    if self.is_user_interrupted(user_id):
+                        self.logger.info(f"[TTS] TTS generation interrupted for {user_id}")
+                        return
                     
-                    if isinstance(data, str):
-                        try:
-                            data = base64.b64decode(data)
-                        except Exception as decode_error:
-                            self.logger.error(f"[TTS] Failed to decode base64 for {user_id}: {decode_error}")
-                            data = data.encode('utf-8')
-                    elif isinstance(data, bytes):
-                        pass
-                    else:
-                        self.logger.error(f"[TTS] Unexpected data type for {user_id}: {type(data)}")
-                        continue
+                    if chunk_data["type"] == "audio" and chunk_data.get("status") == "ok":
+                        data = chunk_data["data"]
+                        
+                        if isinstance(data, str):
+                            try:
+                                data = base64.b64decode(data)
+                            except Exception as decode_error:
+                                self.logger.error(f"[TTS] Failed to decode base64 for {user_id}: {decode_error}")
+                                data = data.encode('utf-8')
+                        elif isinstance(data, bytes):
+                            pass
+                        else:
+                            self.logger.error(f"[TTS] Unexpected data type for {user_id}: {type(data)}")
+                            continue
 
-                    audio_data += data
+                        audio_data += data
+                        
+                    elif chunk_data["type"] == "complete":
+                        break
+                    elif chunk_data["type"] == "error":
+                        error_msg = chunk_data.get('message', 'Unknown TTS error')
+                        self.logger.error(f"[TTS] Assistant TTS error for {user_id}: {error_msg}")
+                        return
+            else:
+                # Use regular TTS engine for other modes
+                async for chunk_data in self.tts.generate_tts_stream(text, user_id, voice):
+                    # Check for interrupt during generation
+                    if self.is_user_interrupted(user_id):
+                        self.logger.info(f"[TTS] TTS generation interrupted for {user_id}")
+                        return
                     
-                elif chunk_data["type"] == "complete":
-                    break
-                elif chunk_data["type"] == "error":
-                    error_msg = chunk_data.get('message', 'Unknown TTS error')
-                    self.logger.error(f"[TTS] Chunk generation error for {user_id}: {error_msg}")
-                    
-                    # Check for specific TTS parameter errors
-                    if "parameters are correct" in error_msg:
-                        self.logger.error(f"[TTS] TTS parameter error - Voice: {voice}, Text: '{text[:100]}'")
-                        # Try with fallback voice
-                        if voice != "en-US-JennyNeural":
-                            self.logger.info(f"[TTS] Retrying with fallback voice for {user_id}")
-                            return await self._generate_and_send_tts_chunk(user_id, text, "en-US-JennyNeural", chunk_id, False)
-                    return
-                    
+                    if chunk_data["type"] == "audio" and chunk_data.get("status") == "ok":
+                        data = chunk_data["data"]
+                        
+                        if isinstance(data, str):
+                            try:
+                                data = base64.b64decode(data)
+                            except Exception as decode_error:
+                                self.logger.error(f"[TTS] Failed to decode base64 for {user_id}: {decode_error}")
+                                data = data.encode('utf-8')
+                        elif isinstance(data, bytes):
+                            pass
+                        else:
+                            self.logger.error(f"[TTS] Unexpected data type for {user_id}: {type(data)}")
+                            continue
+
+                        audio_data += data
+                        
+                    elif chunk_data["type"] == "complete":
+                        break
+                    elif chunk_data["type"] == "error":
+                        error_msg = chunk_data.get('message', 'Unknown TTS error')
+                        self.logger.error(f"[TTS] Chunk generation error for {user_id}: {error_msg}")
+                        
+                        # Check for specific TTS parameter errors
+                        if "parameters are correct" in error_msg:
+                            self.logger.error(f"[TTS] TTS parameter error - Voice: {voice}, Text: '{text[:100]}'")
+                            # Try with fallback voice
+                            if voice != "en-US-JennyNeural":
+                                self.logger.info(f"[TTS] Retrying with fallback voice for {user_id}")
+                                return await self._generate_and_send_tts_chunk(user_id, text, "en-US-JennyNeural", chunk_id, False)
+                        return
+                        
         except asyncio.CancelledError:
             self.logger.info(f"[TTS] Chunk generation cancelled for {user_id}")
             raise
@@ -426,13 +461,13 @@ class WebRTCHandler:
                     "chunk_id": chunk_id,
                     "timestamp": datetime.now().isoformat(),
                     "tts_tokens": tts_usage.input_tokens
-                })
+                })   
                 self.logger.info(f"[TTS] Sent audio chunk {chunk_id} ({len(text)} chars, {len(audio_data)} bytes) to {user_id}")
             except Exception as e:
                 self.logger.error(f"[TTS] Error encoding or sending audio chunk for {user_id}: {e}")
         else:
             self.logger.warning(f"[TTS] No audio data generated for {user_id}, chunk_id: {chunk_id} - text: '{text[:50]}'")
-
+            
     async def handle_file_message_with_instruction(
         self,
         user_id,
