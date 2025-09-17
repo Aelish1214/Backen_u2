@@ -1,0 +1,68 @@
+name: Build & Deploy to EKS
+on:
+  push:
+    branches: [ "staging", "prod" ]
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: "644123626255"
+  ECR_REPO: inaiverse-backend   # <-- agar ECR ka naam aur hai to yahan change
+  EKS_CLUSTER: inai-cluster
+  APP_NAME: inai-api
+  CONTAINER_PORT: "8000"
+  HEALTH_PATH: /healthz
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    env:
+      IMAGE_URI: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
+      NS: ${{ github.ref_name == 'staging' && 'staging' || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::644123626255:role/GITHUB_OIDC_DEPLOY_ROLE
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push image
+        run: |
+          docker build -t $IMAGE_URI:${{ github.sha }} .
+          docker push $IMAGE_URI:${{ github.sha }}
+          ENV_TAG=${{ github.ref_name == 'staging' && 'staging' || 'prod' }}
+          docker tag  $IMAGE_URI:${{ github.sha }} $IMAGE_URI:$ENV_TAG
+          docker push $IMAGE_URI:$ENV_TAG
+
+      - name: Resolve image digest
+        id: digest
+        run: |
+          DIGEST=$(aws ecr describe-images --repository-name $ECR_REPO \
+            --image-ids imageTag=${{ github.sha }} \
+            --query 'imageDetails[0].imageDigest' --output text)
+          echo "DIGEST=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Connect kubectl
+        run: aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_REGION
+
+      - name: Apply k8s manifests
+        run: |
+          kubectl create namespace $NS --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -n $NS -f k8s/$NS/
+
+      - name: Set image by digest & rollout
+        run: |
+          kubectl -n $NS set image deploy/${APP_NAME} ${APP_NAME}=$IMAGE_URI@${{ steps.digest.outputs.DIGEST }}
+          kubectl -n $NS rollout status deploy/${APP_NAME} --timeout=180s
+          kubectl -n $NS get svc
+
+      - name: Smoke check
+        run: |
+          LB=$(kubectl -n $NS get svc ${APP_NAME} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "LB DNS: $LB"
+          curl -fsS --retry 4 --retry-connrefused "http://$LB${HEALTH_PATH}" || true

@@ -12,11 +12,21 @@ import urllib.parse
 import random
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
+from .Characteristics import AssistantCharacteristics
 
 load_dotenv()
 
+# ---- module-scope optional import for key_manager token counter ----
+try:
+    # If your project already has key_manager.count_tokens, reuse it
+    from app.key_manager import count_tokens as _KM_COUNT_TOKENS
+except Exception:
+    _KM_COUNT_TOKENS = None
+
+
 class QueryProcessor:
     def __init__(self, groq_key: Optional[str] = None, cohere_key: Optional[str] = None):
+        self.assistant = AssistantCharacteristics()
         self.groq_api_key = groq_key or os.getenv("GROQ_API_KEY")
         self.cohere_api_key = cohere_key or os.getenv("COHERE_API_KEY")
         self.tavily_api_key = os.getenv("TAVILY_API_KEY")
@@ -31,7 +41,7 @@ class QueryProcessor:
 
         # Enhanced patterns - prioritize breaking news keywords for real-time
         self.realtime_patterns = [
-            r'\b(breaking|urgent|alert|emergency)\b',  # High priority breaking news
+            r'\b(breaking|urgent|alert|emergency)\b',
             r'\b(latest|recent|today|current|now|news|update|todays.*news)\b',
             r'\b(what.*happening|current.*status|live.*updates)\b',
             r'\b(prime minister|president|ceo|stock.*price|weather.*today)\b',
@@ -66,15 +76,17 @@ class QueryProcessor:
                 r'\b(go to|visit)\b.*\.(com|org|net|in)\b'
             ],
             'youtube': [
-                r'\b(play|watch|youtube)\b.*\b(video|song|music)\b(?!.*spotify)',  # Exclude if spotify mentioned
+                r'\b(play|watch|youtube)\b.*\b(video|song|music)\b(?!.*spotify)',
                 r'\b(show me|find)\b.*\b(video|song|music)\b(?!.*spotify)',
                 r'\b(listen to|watch)\b.*\b(song|video)\b(?!.*spotify)'
             ],
             'maps': [
-                r'\b(navigate|directions|route|go to|how to reach)\b',
-                r'\b(location of|where is|find place)\b',
-                r'\b(distance.*between|nearest)\b',
-                r'\b(way to|path to)\b.*\b(place|location|city)\b'
+
+                r'\b(navigate|directions|route|map|maps|distance|tell distance)\b',
+                r'\b(go to|how to reach|way to|path to)\b.*\b(place|location|city|station|airport|mall|hospital)\b',
+                r'\b(location of|where is|find place|distance.*between|distance.*from|tell.*distance)\b',
+                r'\b(nearest|near me|around me|close to)\b',
+                r'\b(from.*to|between.*and)\b'
             ]
         }
 
@@ -85,42 +97,79 @@ class QueryProcessor:
 
         # Language translations for common terms
         self.lang_translations = {
-            'hi': {'खोल': 'open', 'चला': 'play', 'समाचार': 'news', 'आज': 'today', 'समय': 'time'},
-            'gu': {'ખોલ': 'open', 'ચલાવ': 'play', 'સમાચાર': 'news', 'આજ': 'today', 'સમય': 'time'},
-            'bn': {'খোল': 'open', 'চালা': 'play', 'সংবাদ': 'news', 'আজ': 'today', 'সময়': 'time'}
+            'bn': {
+                'খোল': 'open', 'চালা': 'play', 'সংবাদ': 'news', 'আজ': 'today', 'সময়': 'time',
+                'কোথায়': 'where', 'কিভাবে': 'how', 'যাওয়া': 'go', 'রাস্তা': 'route', 'দিক': 'direction'
+            }
         }
+        self.hinglish_words = {}
 
-    def detect_and_correct_query(self, query: str) -> Tuple[str, str]:
+    # ---------- utilities ----------
+    @staticmethod
+    def _count_tokens_text(text: str) -> int:
+        """Token count (cl100k_base). Falls back safely if tiktoken not available or key_manager missing."""
+        if _KM_COUNT_TOKENS is not None:
+            # second arg is just a label in your impl; not used by encoder there
+            try:
+                return _KM_COUNT_TOKENS(text or "", "tavily")
+            except Exception:
+                pass
+        try:
+            import tiktoken
+            enc = tiktoken.get_encoding("cl100k_base")
+            return len(enc.encode(text or ""))
+        except Exception:
+            # last-resort fallback (rough word count)
+            return len((text or "").split())
+
+    def detect_and_correct_query(self, query: str) -> Tuple[str, str, bool]:
         """Detect language, correct spelling/grammar and normalize query"""
         try:
             # Detect language
             lang = detect(query)
             query_lower = query.lower()
-            
+            try:
+                lang = detect(query)
+            except LangDetectException:
+                lang = 'en'
             # Basic translation for common terms
+            query_lower = query.lower()
             if lang in self.lang_translations:
                 for native, english in self.lang_translations[lang].items():
                     query_lower = query_lower.replace(native.lower(), english)
             
             # Grammar corrections
             corrections = {
-                r'\bwhat\s+is\s+the\s+time\b': 'what time is it',
+               r'\bwhat\s+is\s+the\s+time\b': 'what time is it',
                 r'\bwhat\s+is\s+todays?\s+date\b': 'what is the date today',
                 r'\bopen\s+the\s+': 'open ',
                 r'\bplay\s+the\s+': 'play ',
                 r'\bshow\s+me\s+the\s+': 'show me ',
                 r'\btell\s+me\s+about\s+': 'about ',
                 r'\blatest\s+news\s+about\s+': 'latest news ',
+                r'\bhow\s+to\s+go\s+to\s+': 'navigate to ',
+                r'\bway\s+to\s+go\s+to\s+': 'navigate to ',
+                r'\bshow\s+route\s+to\s+': 'navigate to ',
+                r'\bdirection\s+to\s+': 'navigate to ',
+                r'\bmap\s+to\s+': 'navigate to ',
+                r'\bwhere\s+is\s+': 'location of ',
+                r'\bdistance\s+from\s+(.+?)\s+to\s+(.+)': r'distance between \1 and \2',
+                r'\btell\s+distance\s+from\s+(.+?)\s+to\s+(.+)': r'distance between \1 and \2',
+                r'\bopen\s+and\s+tell\s+in\s+(.+?)\s+(.+)\s+distance\b': r'distance between \1 and \2',
+                r'\bopen\s+youtube\s+and\s+play\s+': 'play ',
+                r'\b(.+?)\s+to\s+(.+?)(?:\s+distance|$)' : r'distance between \1 and \2'  
+
             }
             
             for pattern, replacement in corrections.items():
                 query_lower = re.sub(pattern, replacement, query_lower, flags=re.IGNORECASE)
             
-            return query_lower.strip(), lang
+            return query_lower.strip(), lang, False
             
-        except LangDetectException:
-            return query.lower().strip(), 'en'
-
+        except Exception as e:
+            print(f"   ❌ Language detection error: {e}")
+            return query.lower().strip(), 'en', False
+        
     def get_headers(self):
         """Get randomized headers for web scraping"""
         return {
@@ -144,9 +193,9 @@ class QueryProcessor:
                 return True
         return False
 
-    def classify_query(self, query: str) -> Tuple[str, str, str]:
+    def classify_query(self, query: str) -> Tuple[str, str, bool]:
         """Enhanced query classification with language detection"""
-        corrected_query, detected_lang = self.detect_and_correct_query(query)
+        corrected_query, detected_lang, is_hinglish= self.detect_and_correct_query(query)
         
         print(f"🔍 QUERY CLASSIFICATION:")
         print(f"   Original: {query}")
@@ -158,33 +207,49 @@ class QueryProcessor:
             if re.search(pattern, corrected_query, re.IGNORECASE):
                 if not any(re.search(news_pattern, corrected_query, re.IGNORECASE) for news_pattern in self.realtime_patterns):
                     print(f"   ✅ Type: DATETIME")
-                    return f"datetime {corrected_query}", detected_lang, "datetime"
+                    return f"datetime {corrected_query}", detected_lang, "datetime", is_hinglish
         
         # Check for Spotify specifically
         if self.is_spotify_query(corrected_query):
             print(f"   ✅ Type: SPOTIFY")
-            return f"open {corrected_query}", detected_lang, "open"
+            return f"open {corrected_query}", detected_lang, "open" , is_hinglish
         
         # URL patterns (higher priority)
         for category, patterns in self.url_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, corrected_query, re.IGNORECASE):
                     print(f"   ✅ Type: {category.upper()}")
-                    return f"{category} {corrected_query}", detected_lang, category
+                    return f"{category} {corrected_query}", detected_lang, category, is_hinglish
         
         # Realtime patterns
         for pattern in self.realtime_patterns:
             if re.search(pattern, corrected_query, re.IGNORECASE):
                 print(f"   ✅ Type: REAL-TIME")
-                return f"realtime {corrected_query}", detected_lang, "realtime"
+                return f"realtime {corrected_query}", detected_lang, "realtime",  is_hinglish
         
         print(f"   ✅ Type: GENERAL")
-        return f"general {corrected_query}", detected_lang, "general"
+        return f"general {corrected_query}", detected_lang, "general", is_hinglish
 
-    async def process_query(self, user_query: str) -> Dict:
+    async def process_query(self, user_query: str, chat_history: Optional[List[Dict]] = None)-> Dict:
         """Main processing logic with enhanced debugging"""
-        classification, detected_lang, query_type = self.classify_query(user_query)
+        classification, detected_lang, query_type, is_hinglish = self.classify_query(user_query)
         actual_query = classification.split(' ', 1)[1]
+        if self.assistant.should_use_quick_response(user_query):
+            response = self.assistant.get_quick_response(user_query)
+            if response:
+                return {
+                    "type": "greeting",
+                    "text": self.assistant.truncate_response(response),
+                    "url": None
+                }
+        
+        if self.assistant.is_greeting(user_query):
+            response = self.assistant.get_greeting(user_query, chat_history)
+            return {
+                "type": "greeting",
+                "text": self.assistant.truncate_response(response),
+                "url": None
+            }
         
         print(f"\n🚀 PROCESSING QUERY:")
         print(f"   Type: {query_type}")
@@ -203,14 +268,21 @@ class QueryProcessor:
         handler = handlers.get(query_type, self.handle_general_query)
         
         if asyncio.iscoroutinefunction(handler):
-            if query_type == "general":
-                return await handler(actual_query, detected_lang)
+            if query_type in ["general", "maps"]:
+                result = await handler(actual_query, detected_lang, is_hinglish)
             else:
-                return await handler(actual_query)
+                result = await handler(actual_query)
         else:
-            return handler(actual_query)
+            result = handler(actual_query, detected_lang, is_hinglish)
+    
+        result["text"] = self.assistant.apply_tone(
+            self.assistant.truncate_response(result["text"]),
+            query_type
+        )
+        
+        return result
 
-    def handle_datetime_query(self, query: str) -> Dict:
+    def handle_datetime_query(self, query: str, detected_lang: str = 'en', is_hinglish: bool = False) -> Dict:
         """Handle datetime queries"""
         print(f"📅 DATETIME HANDLER:")
         now = datetime.now()
@@ -225,7 +297,7 @@ class QueryProcessor:
         print(f"   ✅ Response: {response}")
         return {"type": "datetime", "text": response, "url": None}
 
-    async def handle_general_query(self, query: str, detected_lang: str = 'en') -> Dict:
+    async def handle_general_query(self, query: str, detected_lang: str ='en', is_hinglish: bool = False) -> Dict:
         """Handle general queries with language-aware responses"""
         print(f"💬 GENERAL HANDLER:")
         
@@ -426,7 +498,8 @@ class QueryProcessor:
         return None
 
     async def _tavily_search(self, query: str) -> Optional[Dict]:
-        """Tavily API search - Response with NO URL and clean formatting"""
+        """Tavily API search — now returns token counts for input & output."""
+        input_tokens = self._count_tokens_text(query)
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {
@@ -436,48 +509,83 @@ class QueryProcessor:
                     "include_answer": True,
                     "max_results": 3
                 }
-                
                 async with session.post("https://api.tavily.com/search", json=payload) as response:
                     if response.status == 200:
                         data = await response.json()
-                        
-                        # Check if there's a direct answer first
+
+                        # 1) Direct answer path
                         if data.get('answer'):
                             clean_answer = str(data['answer']).strip()
-                            # Remove JSON-like formatting if present
+                            # sanitize weird JSONy answers (optional)
                             if clean_answer.startswith('{') or clean_answer.startswith('['):
                                 clean_answer = "Weather information available - check the search results for details."
-                            
+                            output_tokens = self._count_tokens_text(clean_answer)
+
                             return {
                                 "type": "realtime",
                                 "text": clean_answer,
                                 "url": None,
-                                "metadata": {"source": "tavily", "search_method": "tavily_answer"}
+                                "metadata": {"source": "tavily", "search_method": "tavily_answer"},
+                                "token_usage": {
+                                    "provider": "tavily",
+                                    "input_tokens": input_tokens,
+                                    "output_tokens": output_tokens,
+                                    "total_tokens": input_tokens + output_tokens
+                                }
                             }
-                        
-                        # Fallback to first result content
+
+                        # 2) Fallback to first result content
                         if data.get('results'):
                             first_result = data['results'][0]
                             content = first_result.get('content', '')
-                            
-                            # Clean up content - remove JSON formatting
+                            # optional cleanup for weather-like JSON blobs
                             if content.startswith('{') or content.startswith('[') or 'location' in content.lower():
-                                # For weather queries, provide a cleaner response
-                                if any(word in query.lower() for word in ['weather', 'temperature', 'climate']):
+                               if any(word in query.lower() for word in ['weather', 'temperature', 'climate']):
                                     content = f"Current weather information for {query}. Check weather apps for detailed forecast."
-                                else:
-                                    content = content[:300] if len(content) > 300 else content
-                            
+                            # Keep the same truncation policy as before
+                            display_text = content[:300] if len(content) > 300 else content
+
+                            output_tokens = self._count_tokens_text(display_text)
                             return {
                                 "type": "realtime",
-                                "text": f"Latest information: {content}",
+                                "text": f"Latest information: {display_text}",
                                 "url": None,
-                                "metadata": {"source": "tavily", "title": first_result.get('title'), "search_method": "tavily"}
+                                "metadata": {"source": "tavily", "title": first_result.get('title'), "search_method": "tavily"},
+                                "token_usage": {
+                                    "provider": "tavily",
+                                    "input_tokens": input_tokens,
+                                    "output_tokens": output_tokens,
+                                    "total_tokens": input_tokens + output_tokens
+                                }
                             }
+
+                    # Non-200 or empty results
+                    return {
+                        "type": "realtime",
+                        "text": "No direct answer found.",
+                        "url": None,
+                        "metadata": {"source": "tavily", "search_method": "tavily_error", "status": response.status},
+                        "token_usage": {
+                            "provider": "tavily",
+                            "input_tokens": input_tokens,
+                            "output_tokens": 0,
+                            "total_tokens": input_tokens
+                        }
+                    }
         except Exception as e:
-            print(f"   ❌ Tavily search error: {e}")
-        
-        return None
+            # On exception, still return counts for input
+            return {
+                "type": "realtime",
+                "text": f"Tavily error: {e}",
+                "url": None,
+                "metadata": {"source": "tavily", "search_method": "tavily_exception"},
+                "token_usage": {
+                    "provider": "tavily",
+                    "input_tokens": input_tokens,
+                    "output_tokens": 0,
+                    "total_tokens": input_tokens
+                }
+            }
 
     async def _serper_search(self, query: str) -> Optional[Dict]:
         """Serper API search"""
@@ -506,7 +614,7 @@ class QueryProcessor:
         """Handle YouTube queries"""
         print(f"🎥 YOUTUBE HANDLER:")
         
-        search_terms = re.sub(r'\b(play|watch|youtube|video|song|music|show me|find|listen to)\b', '', query, flags=re.IGNORECASE).strip()
+        search_terms = re.sub(r'\b(play|watch|youtube|video|song|music|show me|find|listen to|open youtube and)\b', '', query, flags=re.IGNORECASE).strip()
         
         if not search_terms:
             search_terms = "popular music"
@@ -516,46 +624,91 @@ class QueryProcessor:
         print(f"   ✅ Generated YouTube URL for: {search_terms}")
         return {
             "type": "youtube",
-            "text": f"Playing '{search_terms}' on YouTube. Click to watch/listen.",
+            "text":  self.assistant.format_response("play_music", song=search_terms),
             "url": youtube_url,
             "metadata": {"search_terms": search_terms}
         }
 
-    async def handle_maps_query(self, query: str) -> Dict:
+    async def handle_maps_query(self, query: str, detected_lang: str = 'en', is_hinglish: bool = False)  -> Dict:
         """Handle maps queries"""
         print(f"🗺️  MAPS HANDLER:")
         
-        patterns = [
-            r'(?:navigate|directions|route|go)\s+to\s+(.+?)(?:\s*[.,]|$)',
-            r'(?:how to reach|way to|path to)\s+(.+?)(?:\s*[.,]|$)',
-            r'(?:location of|where is|find)\s+(.+?)(?:\s*[.,]|$)',
+        direction_patterns = [
+            r'(?:navigate|directions|route|go|way)\s+(?:to|from)?\s*(.+?)(?:\s*[.,]|$)',
+            r'(?:how to reach|path to)\s+(.+?)(?:\s*[.,]|$)',
+            r'(?:take me to)\s+(.+?)(?:\s*[.,]|$)',
         ]
         
-        destination = None
-        for pattern in patterns:
+        location_patterns = [
+            r'(?:location of|where is|find)\s+(.+?)(?:\s*[.,]|$)',
+            r'(?:address of|position of)\s+(.+?)(?:\s*[.,]|$)',
+        ]
+        
+        distance_patterns = [
+            r'(?:distance|tell distance)\s+(?:between|from)\s+(.+?)\s+(?:to|and)\s+(.+?)(?:\s*[.,]|$)',
+            r'(?:how far)\s+(?:is)?\s*(.+?)(?:\s*[.,]|$)',
+            r'(.+?)\s+to\s+(.+?)(?:\s+distance|$)'  # New pattern for "sarthana to althan distance"
+        ]
+        
+        near_me_patterns = [
+            r'(?:near me|around me|close to me)',
+            r'(?:nearest|closest)',
+        ]
+        
+        current_location_patterns = [
+            r'\b(current location|current|my location)\b'
+        ]
+        is_near_me = any(re.search(pattern, query, re.IGNORECASE) for pattern in near_me_patterns)
+        is_current_location = any(re.search(pattern, query, re.IGNORECASE) for pattern in current_location_patterns) or not re.search(r'\bfrom\b', query, re.IGNORECASE)
+        for pattern in distance_patterns:
             match = re.search(pattern, query, re.IGNORECASE)
             if match:
-                destination = match.group(1).strip()
-                break
-        
-        if destination:
-            maps_url = f"https://www.google.com/maps/dir/Current+Location/{urllib.parse.quote_plus(destination)}"
-            print(f"   ✅ Generated Maps URL for: {destination}")
-            return {
-                "type": "maps",
-                "text": f"Directions to {destination.title()}",
-                "url": maps_url,
-                "metadata": {"destination": destination}
-            }
-        else:
-            print(f"   ⚠️  Destination not found in query")
-            return {
-                "type": "maps",
-                "text": "Specify destination (e.g., 'navigate to Mumbai')",
-                "url": "https://www.google.com/maps",
-                "metadata": {"error": "location_not_found"}
-            }
+                if len(match.groups()) == 2:
+                    origin = match.group(1).strip()
+                    destination = match.group(2).strip()
+                    if 'current location' in origin.lower():
+                        origin = 'Current+Location'
+                    print(f"   📏 Distance query: {origin} → {destination}")
+                    
+                    maps_url = f"https://www.google.com/maps/dir/{urllib.parse.quote_plus(origin)}/{urllib.parse.quote_plus(destination)}"
+                    response_text = f"Route and distance from {origin.title()} to {destination.title()}. Click to view directions on Google Maps."
 
+                    return {
+                        "type": "maps",
+                        "text": response_text,
+                        "url": maps_url,
+                        "metadata": {"origin": origin, "destination": destination, "query_type": "distance"}
+                    }
+                else:
+                    destination = match.group(1).strip()
+                    origin = 'Current+Location' if is_current_location else destination
+                    print(f"   📏 Distance to: {destination} from {origin}")
+                    maps_url = f"https://www.google.com/maps/dir/{urllib.parse.quote_plus(origin)}/{urllib.parse.quote_plus(destination)}"
+                    response_text = f"Distance and route to {destination.title()} from {origin.replace('+', ' ')}. Click to view directions on Google Maps."
+                    return {
+                        "type": "maps",
+                        "text": response_text,
+                        "url": maps_url,
+                        "metadata": {"destination": destination, "query_type": "distance_from_current"}
+                    }
+        for pattern in location_patterns:
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                location = match.group(1).strip()
+                print(f"   📍 Location search: {location}")
+                if is_near_me:
+                    maps_url = f"https://www.google.com/maps/search/{urllib.parse.quote_plus(location)}+near+me"
+                    response_text = f"Finding {location.title()} locations near you. Click to view on Google Maps."
+                else:
+                    maps_url = f"https://www.google.com/maps/search/{urllib.parse.quote_plus(location)}"
+                    response_text = f"Showing location of {location.title()} on Google Maps."
+                return {
+                    "type": "maps",
+                    "text": response_text,
+                    "url": maps_url,
+                    "metadata": {"location": location, "query_type": "location_search", "near_me": is_near_me}
+                }
+        
     async def handle_open_query(self, query: str) -> Dict:
         """Enhanced website opening with Spotify support"""
         print(f"🌐 OPEN HANDLER:")
@@ -622,6 +775,8 @@ class QueryProcessor:
     async def _search_song_on_spotify(self, song_name: str) -> Optional[Dict]:
         """Search for specific song URL using Tavily"""
         try:
+            if not self.tavily_api_key:
+                return None
             search_query = f"spotify {song_name} track url"
             result = await self._tavily_search(search_query)
             
