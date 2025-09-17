@@ -1,0 +1,169 @@
+{
+  "mouthCues": [
+    {
+      "value": "X",
+      "start": 0.0,
+      "end": 0.18
+    },
+    {
+      "value": "H",
+      "start": 0.18,
+      "end": 0.25
+    },
+    {
+      "value": "X",
+      "start": 0.25,
+      "end": 0.32
+    },
+    {
+      "value": "G",
+      "start": 0.32,
+      "end": 0.4
+    },
+    {
+      "value": "H",
+      "start": 0.4,
+      "end": 0.47
+    },
+    {
+      "value": "B",
+      "start": 0.47,
+      "end": 0.54
+    },
+    {
+      "value": "X",
+      "start": 0.54,
+      "end": 0.61
+    },
+    {
+      "value": "B",
+      "start": 0.61,
+      "end": 0.68
+    },
+    {
+      "value": "D",
+      "start": 0.68,
+      "end": 0.75
+    },
+    {
+      "value": "A",
+      "start": 0.75,
+      "end": 0.83
+    },
+    {
+      "value": "B",
+      "start": 0.83,
+      "end": 0.9
+    },
+    {
+      "value": "X",
+      "start": 0.9,
+      "end": 0.97
+    },
+    {
+      "value": "B",
+      "start": 0.97,
+      "end": 1.11
+    },
+    {
+      "value": "D",
+      "start": 1.11,
+      "end": 1.18
+    },
+    {
+      "value": "B",
+      "start": 1.18,
+      "end": 1.33
+    },
+    {
+      "value": "H",
+      "start": 1.33,
+      "end": 1.4
+    },
+    {
+      "value": "B",
+      "start": 1.4,
+      "end": 1.54
+    },
+    {
+      "value": "G",
+      "start": 1.54,
+      "end": 1.62
+    },
+    {
+      "value": "X",
+      "start": 1.64,
+      "end": 2.63
+    },
+    {
+      "value": "C",
+      "start": 2.63,
+      "end": 2.7
+    },
+    {
+      "value": "X",
+      "start": 2.7,
+      "end": 2.77
+    },
+    {
+      "value": "C",
+      "start": 2.77,
+      "end": 2.85
+    },
+    {
+      "value": "B",
+      "start": 2.85,
+      "end": 2.92
+    },
+    {
+      "value": "X",
+      "start": 2.92,
+      "end": 2.99
+    },
+    {
+      "value": "H",
+      "start": 2.99,
+      "end": 3.06
+    },
+    {
+      "value": "E",
+      "start": 3.06,
+      "end": 3.13
+    },
+    {
+      "value": "X",
+      "start": 3.13,
+      "end": 3.2
+    },
+    {
+      "value": "H",
+      "start": 3.2,
+      "end": 3.28
+    },
+    {
+      "value": "B",
+      "start": 3.28,
+      "end": 3.35
+    },
+    {
+      "value": "C",
+      "start": 3.35,
+      "end": 3.42
+    },
+    {
+      "value": "X",
+      "start": 3.42,
+      "end": 3.49
+    },
+    {
+      "value": "H",
+      "start": 3.49,
+      "end": 3.56
+    },
+    {
+      "value": "X",
+      "start": 3.61,
+      "end": 4.56
+    }
+  ]
+}

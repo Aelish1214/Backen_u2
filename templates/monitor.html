@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>INAI Monitor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0D0D0D;
+      color: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .dashboard-title {
+      font-size: 32px;
+      color: #00FFFF;
+      margin-bottom: 50px;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 220px);
+      grid-gap: 30px;
+    }
+    .monitor-button {
+      background: linear-gradient(145deg, #1A1A1A, #262626);
+      border: 2px solid #00ffff88;
+      border-radius: 12px;
+      padding: 30px 20px;
+      color: #FFFFFF;
+      font-size: 18px;
+      text-decoration: none;
+      box-shadow: 0 8px 20px rgba(0, 255, 255, 0.1);
+      transition: all 0.3s ease-in-out;
+      text-align: center;
+    }
+    .monitor-button:hover {
+      background: linear-gradient(145deg, #00BCD4, #009688);
+      box-shadow: 0 8px 25px rgba(0, 255, 255, 0.3);
+      transform: translateY(-5px);
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-title">☄️ INAI Monitoring Dashboard ☄️</div>
+  <div class="button-grid">
+    <a href="/INAI520/monitor/api_key_usage" class="monitor-button">🗝️ API Key Usage</a>
+    <a href="/INAI520/monitor/user_sessions" class="monitor-button">👤 Active User Sessions</a>
+    <a href="/INAI520/monitor/token_usage" class="monitor-button">🧠 Token Usage per User</a>
+    <a href="/INAI520/monitor/exhausted_users" class="monitor-button">💥 Exhausted Users</a>
+  </div>
+</body>
+</html>

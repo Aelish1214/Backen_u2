@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #141e30, #243b55);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: #1f1f1f;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      text-align: center;
+      width: 400px;
+    }
+
+    h2 {
+      margin-bottom: 30px;
+      color: #00ffff;
+    }
+
+    .admin-option {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      background-color: #00bcd4;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .admin-option:hover {
+      background-color: #0097a7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Admin Panel Options</h2>
+
+    <!-- ✅ FIXED: method="GET", URL matches route -->
+    <form method="GET" action="/INAI520/maintenance">
+      <button class="admin-option" type="submit">🛠️ Maintenance</button>
+    </form>
+
+    <!-- ✅ FIXED: correct route is /admin/monitor -->
+    <form method="GET" action="/INAI520/monitor">
+      <button class="admin-option" type="submit">📊 Monitoring</button>
+    </form>
+
+  </div>
+</body>
+</html>

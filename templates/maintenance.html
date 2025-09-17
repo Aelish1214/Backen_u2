@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Maintenance Mode</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #121212;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background-color: #1e1e1e;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      width: 400px;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #00ffff;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+      margin: 20px auto;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #888;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #43b581;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    #status-text {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+
+    #back {
+      margin-top: 30px;
+      display: inline-block;
+      padding: 10px 20px;
+      background: #00bcd4;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+
+    #back:hover {
+      background: #0097a7;
+    }
+
+    .error-message {
+      color: #ff4d4d;
+      margin-top: 10px;
+      font-size: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🛠 Maintenance Mode</h2>
+    <label class="switch">
+      <input type="checkbox" id="toggle-maintenance" disabled />
+      <span class="slider"></span>
+    </label>
+    <div id="status-text">Loading system status...</div>
+    <div id="error-message" class="error-message">❌ Invalid password</div>
+    <a href="/INAI520/home" id="back">⬅ Back to Panel</a>
+  </div>
+
+  <script>
+    const toggle = document.getElementById("toggle-maintenance");
+    const statusText = document.getElementById("status-text");
+    const errorMessage = document.getElementById("error-message");
+
+    let currentState = null;
+    let isProcessing = false;
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/status");
+        const data = await res.json();
+        currentState = data.socket;
+        toggle.checked = currentState;
+        updateStatusText(currentState);
+        toggle.disabled = false;
+        errorMessage.style.display = "none";
+      } catch (err) {
+        statusText.innerText = "⚠ Unable to fetch system status.";
+        toggle.disabled = true;
+      }
+    }
+
+    function updateStatusText(state) {
+      statusText.innerText = state ? "🟢 System is ON" : "🔴 System is OFF";
+    }
+
+    toggle.addEventListener("change", async () => {
+      if (isProcessing) return;
+
+      const newValue = toggle.checked;
+      toggle.checked = currentState; // Revert UI until confirmed
+      const password = prompt("Enter password to toggle system:");
+
+      if (!password) return;
+
+      isProcessing = true;
+      toggle.disabled = true;
+
+      try {
+        const res = await fetch("/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+
+        if (!res.ok) throw new Error("Toggle failed");
+
+        const result = await res.json();
+        currentState = result.socket;
+        toggle.checked = currentState;
+        updateStatusText(currentState);
+        errorMessage.style.display = "none";
+      } catch (err) {
+        errorMessage.style.display = "block";
+      } finally {
+        toggle.disabled = false;
+        isProcessing = false;
+      }
+    });
+
+    fetchStatus();
+
+  </script>
+</body>
+</html>

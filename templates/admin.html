@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #232526, #414345);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background-color: #2C2F33;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      width: 450px;
+      text-align: center;
+    }
+
+    input[type="password"] {
+      padding: 10px;
+      width: 90%;
+      border-radius: 5px;
+      border: none;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #7289DA;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #5B6EAE;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 30px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 24px;
+      width: 24px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #43B581;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(30px);
+    }
+
+    #toggle-section, #monitoring-section {
+      display: none;
+      margin-top: 20px;
+    }
+
+    #monitor-output {
+      text-align: left;
+      max-height: 200px;
+      overflow: auto;
+      background: #1E1E1E;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Admin Panel</h2>
+
+    <!-- Login section -->
+    <div id="login-section">
+      <input type="password" id="password" placeholder="🔒 Enter admin password">
+      <br>
+      <button onclick="checkPassword()">Login</button>
+      <p id="login-error" style="color: red; display: none;">💔 Incorrect password</p>
+    </div>
+
+    <!-- Toggle key section -->
+    <div id="toggle-section">
+      <label class="switch">
+        <input type="checkbox" id="toggle" onchange="sendToggle()">
+        <span class="slider"></span>
+      </label>
+      <div id="status">Status will appear after login</div>
+    </div>
+
+    <!-- Mongo Monitoring (optional: enable if needed) -->
+    <!-- 
+    <div id="monitoring-section">
+      <h3>📊 MongoDB Monitoring</h3>
+      <button onclick="loadMonitoring()">🔄 Refresh</button>
+      <pre id="monitor-output">...</pre>
+    </div>
+    -->
+  </div>
+
+  <script>
+    let enteredPassword = "";
+
+    async function checkPassword() {
+    enteredPassword = document.getElementById("password").value.trim();
+    if (!enteredPassword) return;
+
+    const test = await fetch("/login", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: enteredPassword })
+    });
+
+    const result = await test.json();
+
+    if (result.detail) {
+        document.getElementById("login-error").style.display = "block";
+    } else {
+        document.getElementById("login-error").style.display = "none";
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("toggle-section").style.display = "block";
+
+        const toggle = document.getElementById("toggle");
+        const status = document.getElementById("status");
+
+        // ✅ Set toggle ON/OFF based on server status
+        toggle.checked = result.socket;
+        status.innerText = result.socket ? "🟢 System is ON" : "🔴 System is OFF";
+    }
+    }
+
+
+    async function sendToggle() {
+    const res = await fetch("/toggle", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: enteredPassword })
+    });
+
+    const data = await res.json();
+
+    const status = document.getElementById("status");
+    const toggle = document.getElementById("toggle");
+
+    if (data.detail) {
+        status.innerText = "❌ Invalid password!";
+        return;
+    }
+
+    // ✅ Update toggle.checked and status text
+    toggle.checked = data.socket;
+    status.innerText = data.socket ? "🟢 System is ON" : "🔴 System is OFF";
+    }
+
+
+  </script>
+</body>
+</html>

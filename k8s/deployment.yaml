@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+env:
+- name: UVICORN_WORKERS
+value: "4"
+readinessProbe:
+httpGet:
+path: /healthz
+port: 8000
+initialDelaySeconds: 10
+periodSeconds: 10
+livenessProbe:
+httpGet:
+path: /healthz
+port: 8000
+initialDelaySeconds: 30
+periodSeconds: 15
+resources:
+requests:
+cpu: "250m"
+memory: "512Mi"
+limits:
+cpu: "1000m"
+memory: "1Gi"
+command: ["bash","-lc"]
+args: [
+"uvicorn serve:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-4}"
+]
+
+
+- name: nginx
+image: nginx:1.25-alpine
+ports:
+- containerPort: 80
+volumeMounts:
+- name: nginx-config
+mountPath: /etc/nginx/nginx.conf
+subPath: nginx.conf
+readinessProbe:
+httpGet:
+path: /healthz
+port: 80
+initialDelaySeconds: 5
+periodSeconds: 10
+livenessProbe:
+httpGet:
+path: /healthz
+port: 80
+initialDelaySeconds: 15
+periodSeconds: 15
+resources:
+requests:
+cpu: "100m"
+memory: "128Mi"
+limits:
+cpu: "500m"
+memory: "256Mi"
+volumes:
+- name: nginx-config
+configMap:
+name: nginx-config
+items:
+- key: nginx.conf
+path: nginx.conf

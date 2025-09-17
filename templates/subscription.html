@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscription Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #F4F6F8;
+            color: #333;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2C3E50;
+        }
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background-color: #fff;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #2C3E50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #F9F9F9;
+        }
+        tr:hover {
+            background-color: #EAF2F8;
+        }
+        .status-active {
+            color: green;
+            font-weight: bold;
+        }
+        .status-inactive {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Subscription Monitor</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Subscription ID</th>
+                <th>User ID</th>
+                <th>Plan Name</th>
+                <th>Status</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Tokens Remaining</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sub in subscriptions %}
+            <tr>
+                <td>{{ sub.sub_id }}</td>
+                <td>{{ sub.user_id }}</td>
+                <td>{{ sub.plan_name }}</td>
+                <td class="{{ 'status-active' if sub.status else 'status-inactive' }}">
+                    {{ "Active" if sub.status else "Inactive" }}
+                </td>
+                <td>{{ sub.start_date.strftime('%Y-%m-%d %H:%M') if sub.start_date else 'N/A' }}</td>
+                <td>{{ sub.end_date.strftime('%Y-%m-%d %H:%M') if sub.end_date else 'N/A' }}</td>
+                <td>{{ sub.token_remaining if sub.token_remaining is not none else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

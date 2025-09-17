@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+name: nginx-config
+namespace: ${K8S_NAMESPACE}
+data:
+nginx.conf: |
+# (same content as docker/nginx.conf)

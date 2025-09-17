@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>INAI Chatbot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #121212;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+
+    #usernamePrompt {
+      position: fixed;
+      inset: 0;
+      background-color: #000000f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    #usernamePrompt input {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      width: 250px;
+      margin-bottom: 15px;
+    }
+
+    #usernamePrompt button {
+      padding: 10px 20px;
+      background-color: #00aaff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .chat-container {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #1c1c1c;
+      border-radius: 20px;
+      padding: 20px 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      border: 1px solid #2e2e2e;
+      display: none;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 26px;
+      letter-spacing: 1px;
+      color: #00ffff;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .input-row {
+      margin-bottom: 10px;
+    }
+
+    .input-row label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #bbb;
+    }
+
+    .input-row select {
+      width: 100%;
+      padding: 10px 12px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: 0.2s ease;
+    }
+
+    .input-row select:focus {
+      border-color: #00ccff;
+      outline: none;
+    }
+
+    .voice-indicator {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 8px;
+      background: #2a4a2a;
+      color: #88ff88;
+    }
+
+    #chat-box {
+      max-height: 350px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+      background-color: #222;
+      border: 1px solid #333;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #messages li {
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      border-radius: 15px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    #messages .user {
+      background: #0055aa;
+      color: #fff;
+      align-self: flex-end;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    #messages .bot {
+      background: #333;
+      color: #ffcc00;
+      align-self: flex-start;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    #messages .bot.streaming {
+      background: #2a4a2a;
+      border-left: 3px solid #00ff88;
+      animation: pulse 1.5s infinite;
+    }
+
+    #messages .bot.complete {
+      background: #333;
+      border-left: none;
+      animation: none;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.7;
+      }
+    }
+
+    /* Enhanced media display styles */
+    .generated-media {
+      margin: 15px 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      border-radius: 12px;
+      border: 1px solid #444;
+      max-width: 100%;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .generated-media:hover {
+      border-color: #00ffff;
+      box-shadow: 0 6px 20px rgba(0, 255, 255, 0.1);
+    }
+
+    .generated-media h4 {
+      margin: 0 0 15px 0;
+      color: #00ffff;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* PDF-specific styles */
+    .pdf-media .pdf-preview {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 15px;
+      background: #2a2a2a;
+      border-radius: 8px;
+      border: 2px dashed #444;
+      transition: border-color 0.3s ease;
+    }
+
+    .pdf-media .pdf-preview:hover {
+      border-color: #00aaff;
+    }
+
+    .pdf-icon {
+      font-size: 48px;
+      color: #ff6b6b;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      animation: pulse-pdf 2s infinite;
+    }
+
+    @keyframes pulse-pdf {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      50% {
+        transform: scale(1.05);
+        opacity: 1;
+      }
+    }
+
+    .pdf-details {
+      flex-grow: 1;
+      color: #ccc;
+    }
+
+    .pdf-details div {
+      margin-bottom: 5px;
+    }
+
+    .pdf-details strong {
+      color: #fff;
+    }
+
+    /* Direct download link styles */
+    .download-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 20px;
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00aaff 0%, #0088cc 100%);
+      border: 1px solid rgba(0, 170, 255, 0.3);
+      margin-top: 10px;
+    }
+
+    .download-link:hover {
+      background: linear-gradient(135deg, #0088cc 0%, #006699 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 170, 255, 0.4);
+      text-decoration: none;
+      color: white;
+    }
+
+    .download-link:active {
+      transform: translateY(0px);
+    }
+
+    /* Image media styles */
+    .image-media,
+    .diagram-media {
+      text-align: center;
+    }
+
+    .generated-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      display: block;
+      margin: 10px auto;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .generated-image:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(0, 255, 255, 0.2);
+    }
+
+    /* Modal styles */
+    .image-viewer-modal {
+      animation: modalFadeIn 0.3s ease;
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* Status enhancements */
+    #status.info {
+      color: #00aaff;
+      background: rgba(0, 170, 255, 0.1);
+      border: 1px solid rgba(0, 170, 255, 0.3);
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+
+    /* Loading states */
+    .media-loading {
+      text-align: center;
+      padding: 30px;
+      color: #aaa;
+      background: #1a1a1a;
+      border-radius: 8px;
+      border: 2px dashed #444;
+    }
+
+    .media-loading .spinner {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      border: 3px solid #444;
+      border-top: 3px solid #00ffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Download progress indicator */
+    .download-progress {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #2a2a2a;
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      z-index: 3000;
+      display: none;
+      animation: slideInRight 0.3s ease;
+    }
+
+    .download-progress.show {
+      display: block;
+    }
+
+    .download-progress.success {
+      background: #1a4a1a;
+      border-color: #00ff88;
+      color: #00ff88;
+    }
+
+    .download-progress.error {
+      background: #4a1a1a;
+      border-color: #ff4444;
+      color: #ff4444;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Responsive design for mobile */
+    @media (max-width: 768px) {
+      .pdf-preview {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+      }
+
+      .download-link {
+        font-size: 12px;
+        padding: 10px 16px;
+      }
+
+      .generated-media {
+        padding: 15px;
+        margin: 10px 0;
+      }
+
+      .pdf-icon {
+        font-size: 36px;
+      }
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    #messageInput {
+      flex: 1;
+      padding: 10px 15px;
+      border-radius: 12px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      font-size: 14px;
+    }
+
+    #sendBtn,
+    #mic-btn {
+      padding: 10px 16px;
+      font-size: 15px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    #sendBtn {
+      background: #00aaff;
+      color: #fff;
+    }
+
+    #sendBtn:hover {
+      background: #0088cc;
+    }
+
+    #sendBtn:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    #mic-btn {
+      background: #00cc66;
+      color: white;
+    }
+
+    #mic-btn:hover {
+      background: #009955;
+    }
+
+    #status {
+      text-align: center;
+      padding: 5px;
+      font-size: 12px;
+      color: #aaa;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+
+    #status.thinking {
+      color: #00ff88;
+      background: #1a3a1a;
+    }
+
+    #status.error {
+      color: #ff4444;
+      background: #3a1a1a;
+    }
+
+    audio {
+      margin-top: 10px;
+      width: 100%;
+      display: none;
+    }
+
+    pre {
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    .connection-status {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 15px;
+    }
+
+    .connection-status.connected {
+      background: #1a4a1a;
+      color: #00ff88;
+    }
+
+    .connection-status.disconnected {
+      background: #4a1a1a;
+      color: #ff4444;
+    }
+
+    .voice-preview {
+      margin-top: 5px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .attach-options {
+      position: absolute;
+      bottom: 50px;
+      right: 10px;
+      background: #222;
+      border: 1px solid #444;
+      border-radius: 12px;
+      padding: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 2000;
+    }
+
+    .attach-options button {
+      background: #2c2c2c;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .attach-options button:hover {
+      background: #00aaff;
+    }
+
+    /* ---- Added from second file: Enhanced URL Link Styling ---- */
+    .url-link {
+      display: inline-block;
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 10px 0;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 170, 255, 0.3);
+    }
+
+    .url-link:hover {
+      background: linear-gradient(135deg, #0088cc, #006699);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 170, 255, 0.4);
+      border-color: #00ccff;
+    }
+
+    .url-link:active {
+      transform: translateY(0px);
+    }
+
+    .url-link.youtube::before {
+      content: "▶️ ";
+      margin-right: 8px;
+    }
+
+    .url-link.maps::before {
+      content: "🗺️ ";
+      margin-right: 8px;
+    }
+
+    .url-link.realtime::before {
+      content: "📰 ";
+      margin-right: 8px;
+    }
+
+    .url-link.open::before {
+      content: "🌐 ";
+      margin-right: 8px;
+    }
+
+    .url-link.general::before {
+      content: "🔗 ";
+      margin-right: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="usernamePrompt">
+    <h2 style="color:#00ffff">Enter Your Name</h2>
+    <input type="text" id="usernameInput" placeholder="Your name..." />
+    <button onclick="setUsername()">Continue</button>
+  </div>
+
+  <div class="chat-container" id="chatUI">
+    <div class="connection-status" id="connectionStatus">Disconnected</div>
+    <h1>INAI Chatbot</h1>
+    <div id="status"></div>
+
+    <div class="controls-grid">
+      <div class="input-row">
+        <label for="mode">Mode:</label>
+        <select id="mode">
+          <option value="friend">Friend</option>
+          <option value="info">Info</option>
+          <option value="elder">Elder</option>
+          <option value="love">Love</option>
+          <option value="ai_assistant">AI Assistant</option>
+        </select>
+      </div>
+
+      <div class="input-row">
+        <label for="voiceModel">Voice Model:</label>
+        <select id="voiceModel">
+          <option value="female1">Female Voice 1 (Neerja)</option>
+          <option value="female2">Female Voice 2 (Jenny)</option>
+          <option value="male">Male Voice (Guy)</option>
+        </select>
+        <div class="voice-preview" id="voicePreview">Indian English - Expressive</div>
+      </div>
+    </div>
+
+    <div id="chat-box">
+      <ul id="messages"></ul>
+    </div>
+
+    <div id="controls">
+      <input type="text" id="messageInput" placeholder="Try: 'show me construction structure' or 'generate PDF report'" />
+      <button id="sendBtn">Send</button>
+      <button id="mic-btn">🎤</button>
+      <button id="attachBtn">➕</button>
+    </div>
+
+    <!-- Attachment Options -->
+    <div id="attachOptions" class="attach-options">
+      <button onclick="openFileDialog('pdf'); hideOptions()">📄 PDF</button>
+      <button onclick="openFileDialog('image'); hideOptions()">🖼️ Image</button>
+      <button onclick="openFileDialog('docx'); hideOptions()">📝 Word Doc</button>
+      <button onclick="openFileDialog('excel'); hideOptions()">📊 Excel</button>
+      <button onclick="openCamera(); hideOptions()">📷 Camera</button>
+      <button onclick="openFileDialog('audio'); hideOptions()">🎙️ Audio</button>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="pdfInput" accept="application/pdf" hidden>
+    <input type="file" id="imageInput" accept="image/*" hidden>
+    <input type="file" id="audioInput" accept="audio/*" hidden>
+    <input type="file" id="docxInput" accept=".docx" hidden>
+    <input type="file" id="excelInput" accept=".xlsx,.xls" hidden>
+
+    <!-- Download Progress Indicator -->
+    <div id="downloadProgress" class="download-progress">
+      <div id="downloadMessage">Starting download...</div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div id="fileUploadModal" style="display:none; position:fixed; inset:0; background:#000000dd; 
+      display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:3000;">
+      <div style="background:#1c1c1c; padding:30px; border-radius:15px; max-width:500px; width:90%;">
+        <h3 style="color:#00ffff; margin-top:0;">Upload File with Instructions</h3>
+        <div id="filePreview" style="margin-bottom:20px; text-align:center;"></div>
+        <textarea id="fileInstructionText" placeholder="What would you like to do with this file?" style="width:100%; height:100px; padding:12px; border-radius:10px; background:#2a2a2a; 
+             color:#fff; border:1px solid #444; font-size:14px; resize:vertical; margin-bottom:15px;"></textarea>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button onclick="cancelFileUpload()"
+            style="padding:10px 20px; background:#666; color:white; border:none; border-radius:8px; cursor:pointer;">
+            Cancel
+          </button>
+          <button onclick="processFileUpload()"
+            style="padding:10px 20px; background:#00aaff; color:white; border:none; border-radius:8px; cursor:pointer;">
+            Upload & Process
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="cameraModal" style="display:none; position:fixed; inset:0; background:#000000dd; 
+      flex-direction:column; justify-content:center; align-items:center; z-index:3000;">
+      <video id="cameraStream" autoplay playsinline
+        style="width:350px; border:3px solid #00aaff; border-radius:12px;"></video>
+      <br>
+      <button onclick="capturePhoto()"
+        style="padding:10px 20px; background:#00cc66; color:white; border:none; border-radius:10px;">📸 Capture</button>
+      <button onclick="closeCamera()"
+        style="padding:10px 20px; background:#aa0000; color:white; border:none; border-radius:10px; margin-top:8px;">❌
+        Close</button>
+      <canvas id="cameraCanvas" style="display:none;"></canvas>
+    </div>
+
+    <audio id="audioPlayer" preload="metadata"></audio>
+  </div>
+
+  <script>
+    const SERVER_BASE = "http://192.168.1.102:5200";
+
+    let currentFileData = null;
+    let currentFileType = null;
+
+    // Fixed AudioManager class with proper audio chunk handling (kept from first file)
+    class AudioManager {
+      constructor() {
+        this.audioContext = null;
+        this.audioQueue = [];
+        this.isPlaying = false;
+        this.currentSource = null;
+        this.audioPlayer = document.getElementById('audioPlayer');
+        this.streamingMode = false;
+        this.currentVoiceModel = 'female1';
+        this.playbackPromise = null;
+      }
+
+      async initAudioContext() {
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+      }
+
+      async decodeAudioData(audioData) {
+        await this.initAudioContext();
+
+        try {
+          let arrayBuffer;
+
+          if (audioData instanceof ArrayBuffer) {
+            arrayBuffer = audioData;
+          } else if (audioData instanceof Uint8Array) {
+            arrayBuffer = audioData.buffer;
+          } else if (typeof audioData === 'string') {
+            const binary = atob(audioData);
+            const buffer = new ArrayBuffer(binary.length);
+            const view = new Uint8Array(buffer);
+            for (let i = 0; i < binary.length; i++) {
+              view[i] = binary.charCodeAt(i);
+            }
+            arrayBuffer = buffer;
+          } else {
+            throw new Error('Unsupported audio data format');
+          }
+
+          return await this.audioContext.decodeAudioData(arrayBuffer);
+        } catch (error) {
+          console.error('Audio decode error:', error);
+          throw error;
+        }
+      }
+
+      async queueAudioChunk(audioData, chunkId, voiceModel) {
+        try {
+          console.log(`[Audio] Queueing chunk ${chunkId}, data type:`, typeof audioData, 'length:', audioData.length || audioData.byteLength);
+
+          const audioBuffer = await this.decodeAudioData(audioData);
+          this.audioQueue.push({
+            buffer: audioBuffer,
+            chunkId,
+            voiceModel,
+            timestamp: Date.now()
+          });
+
+          console.log(`[Audio] Chunk ${chunkId} queued successfully. Queue length: ${this.audioQueue.length}`);
+
+          if (this.streamingMode && !this.isPlaying) {
+            this.playNextChunk();
+          }
+        } catch (error) {
+          console.error(`[Audio] Failed to queue chunk ${chunkId}:`, error);
+        }
+      }
+
+      async playNextChunk() {
+        if (this.audioQueue.length === 0) {
+          this.isPlaying = false;
+          console.log('[Audio] Queue empty, stopping playback');
+          return;
+        }
+
+        if (this.isPlaying) {
+          console.log('[Audio] Already playing, skipping');
+          return;
+        }
+
+        this.isPlaying = true;
+        const item = this.audioQueue.shift();
+
+        try {
+          console.log(`[Audio] Playing chunk ${item.chunkId}`);
+
+          const source = this.audioContext.createBufferSource();
+          source.buffer = item.buffer;
+          source.connect(this.audioContext.destination);
+
+          source.onended = () => {
+            console.log(`[Audio] Chunk ${item.chunkId} finished`);
+            this.currentSource = null;
+            this.isPlaying = false;
+
+            setTimeout(() => {
+              if (this.audioQueue.length > 0) {
+                this.playNextChunk();
+              }
+            }, 50);
+          };
+
+          if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+          }
+
+          source.start(0);
+          this.currentSource = source;
+
+        } catch (error) {
+          console.error(`[Audio] Playback error for chunk ${item.chunkId}:`, error);
+          this.isPlaying = false;
+
+          setTimeout(() => {
+            if (this.audioQueue.length > 0) {
+              this.playNextChunk();
+            }
+          }, 100);
+        }
+      }
+
+      startStreaming(voiceModel) {
+        console.log(`[Audio] Starting streaming mode with voice: ${voiceModel}`);
+        this.streamingMode = true;
+        this.currentVoiceModel = voiceModel;
+        this.audioQueue = [];
+      }
+
+      stopStreaming() {
+        console.log('[Audio] Stopping streaming mode');
+        this.streamingMode = false;
+      }
+
+      playFinalAudio(audioBase64) {
+        if (!this.streamingMode && audioBase64) {
+          console.log('[Audio] Playing final audio via HTML5 player');
+          try {
+            this.audioPlayer.src = "data:audio/mp3;base64," + audioBase64;
+            this.playbackPromise = this.audioPlayer.play();
+            this.playbackPromise.catch(e => {
+              console.error('[Audio] HTML5 playback failed:', e);
+            });
+          } catch (error) {
+            console.error('[Audio] Final audio setup failed:', error);
+          }
+        }
+      }
+
+      stopAll() {
+        console.log('[Audio] Stopping all audio');
+        this.audioQueue = [];
+        this.streamingMode = false;
+
+        if (this.currentSource) {
+          try {
+            this.currentSource.stop();
+          } catch (e) {
+            console.log('[Audio] Source stop failed (already stopped):', e);
+          }
+          this.currentSource = null;
+        }
+
+        if (this.audioPlayer) {
+          this.audioPlayer.pause();
+          this.audioPlayer.currentTime = 0;
+        }
+
+        if (this.playbackPromise) {
+          this.playbackPromise.catch(() => { });
+          this.playbackPromise = null;
+        }
+
+        this.isPlaying = false;
+      }
+    }
+
+    // Streaming client (base from first file, merged with URL/assistant handling from second file)
+    class INAIStreamingClient {
+      constructor(userId) {
+        this.userId = userId;
+        this.peerConnection = null;
+        this.dataChannel = null;
+        this.isConnected = false;
+        this.streamingActive = false;
+        this.currentResponseElement = null;
+        this.audioManager = new AudioManager();
+        this.mediaBuffer = "";
+
+        this.initWebRTC();
+      }
+
+      stopCurrentStreaming() {
+        if (this.streamingActive) {
+          this.streamingActive = false;
+          this.audioManager.stopAll();
+
+          if (this.isConnected && this.dataChannel.readyState === 'open') {
+            try {
+              this.dataChannel.send(JSON.stringify({
+                type: 'cancel_stream',
+                timestamp: new Date().toISOString()
+              }));
+            } catch (err) {
+              console.error('Failed to send cancellation signal:', err);
+            }
+          }
+
+          if (this.currentResponseElement) {
+            this.currentResponseElement.className = 'bot complete';
+            this.currentResponseElement.innerHTML += " <em>[Cancelled by new input]</em>";
+          }
+
+          this.showStatus('Previous response cancelled', 'info');
+        }
+      }
+
+      async initWebRTC() {
+        try {
+          this.peerConnection = new RTCPeerConnection({ iceServers: [] });
+          this.dataChannel = this.peerConnection.createDataChannel('messages', { ordered: true });
+
+          this.setupDataChannelHandlers();
+          this.setupPeerConnectionHandlers();
+
+          const offer = await this.peerConnection.createOffer();
+          await this.peerConnection.setLocalDescription(offer);
+
+          const response = await fetch(`${SERVER_BASE}/webrtc/offer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: this.userId, sdp: offer.sdp, type: offer.type })
+          });
+
+          const answer = await response.json();
+          await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+
+        } catch (error) {
+          console.error('WebRTC init error:', error);
+          this.updateConnectionStatus(false);
+          this.showError('Failed to initialize WebRTC');
+        }
+      }
+
+      setupDataChannelHandlers() {
+        this.dataChannel.onopen = () => {
+          this.isConnected = true;
+          this.updateConnectionStatus(true);
+          console.log('Data channel opened');
+        };
+
+        this.dataChannel.onclose = () => {
+          this.isConnected = false;
+          this.updateConnectionStatus(false);
+          console.log('Data channel closed');
+        };
+
+        this.dataChannel.onerror = (err) => {
+          console.error('Data channel error:', err);
+          this.showError('Data channel error');
+        };
+
+        this.dataChannel.onmessage = (event) => this.handleStreamingMessage(event.data);
+      }
+
+      setupPeerConnectionHandlers() {
+        this.peerConnection.onicecandidate = async (event) => {
+          if (event.candidate) {
+            const ice = event.candidate;
+            await fetch(`${SERVER_BASE}/webrtc/candidate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: this.userId,
+                candidate: {
+                  candidate: ice.candidate,
+                  sdpMid: ice.sdpMid,
+                  sdpMLineIndex: ice.sdpMLineIndex
+                }
+              })
+            });
+          }
+        };
+
+        this.peerConnection.onconnectionstatechange = () => {
+          const state = this.peerConnection.connectionState;
+          const connected = state === 'connected';
+          this.updateConnectionStatus(connected);
+          console.log('Connection state:', state);
+
+          if (state === 'failed' || state === 'disconnected') {
+            this.showError('WebRTC connection lost, using HTTP fallback');
+            setTimeout(() => {
+              if (this.peerConnection.connectionState !== 'connected') {
+                console.log('Attempting WebRTC reconnection...');
+                this.initWebRTC();
+              }
+            }, 3000);
+          }
+        };
+
+        this.peerConnection.ondatachannel = (event) => {
+          const channel = event.channel;
+          channel.onopen = () => {
+            console.log('Incoming data channel opened');
+            this.isConnected = true;
+            this.updateConnectionStatus(true);
+          };
+        };
+      }
+
+      handleStreamingMessage(data) {
+        try {
+          const msg = JSON.parse(data);
+          console.log('[WebRTC] Received message:', msg.type);
+
+          switch (msg.type) {
+            case 'stream_start':
+              this.streamingActive = true;
+              this.showStatus('AI is thinking...', 'thinking');
+              this.createNewResponseElement();
+              this.mediaBuffer = "";
+
+              const voiceModel = document.getElementById("voiceModel").value;
+              this.audioManager.startStreaming(voiceModel);
+              break;
+
+            case 'text_chunk':
+              if (this.currentResponseElement) {
+                this.mediaBuffer += msg.data.chunk;
+                this.currentResponseElement.innerHTML += msg.data.chunk;
+                scrollToBottom();
+              }
+              break;
+
+            case 'audio_chunk':
+              console.log('[WebRTC] Received audio chunk:', msg.data.chunk_id);
+
+              if (msg.data.audio) {
+                this.audioManager.queueAudioChunk(
+                  msg.data.audio,
+                  msg.data.chunk_id,
+                  msg.data.voice_model || document.getElementById("voiceModel").value
+                );
+              }
+              break;
+
+            case 'audio_complete':
+              console.log('[WebRTC] Audio streaming complete');
+              this.audioManager.stopStreaming();
+              break;
+
+            case 'final_response':
+              this.streamingActive = false;
+              this.showStatus('Complete', '');
+
+              if (msg.data.mode_switched) {
+                // Update the mode selector
+                const modeSelect = document.getElementById("mode");
+                modeSelect.value = msg.data.new_mode;
+
+                // Update voice preview if needed
+                updateVoicePreview();
+
+                // Show mode switch notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a4a1a;
+            color: #00ff88;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: fadeInOut 3s forwards;
+        `;
+                notification.textContent = `Switched to ${msg.data.new_mode} mode`;
+                document.body.appendChild(notification);
+
+                setTimeout(() => notification.remove(), 3000);
+              }
+
+              if (this.currentResponseElement) {
+                this.currentResponseElement.className = 'bot complete';
+                let processedContent = processMessageForMedia(this.mediaBuffer);
+
+                // Enhanced URL handling (from second file)
+                const assistantData = msg.data.assistant_data || null;
+                const finalUrl = (assistantData && assistantData.url) ? assistantData.url : (msg.data.url || null);
+                const urlType = assistantData?.type || 'general';
+                const metadata = assistantData?.metadata || {};
+
+                if (finalUrl) {
+                  const linkText = getLinkTextForType(urlType, metadata);
+                  processedContent += `<br><br><a href="${finalUrl}" target="_blank" class="url-link ${urlType}">${linkText}</a>`;
+                }
+
+                this.currentResponseElement.innerHTML = "<b>AI:</b><br>" + processedContent;
+              }
+
+              const voiceIndicator = document.createElement('span');
+              voiceIndicator.className = 'voice-indicator';
+              voiceIndicator.textContent = `Voice: ${msg.data.voice_model || 'default'}`;
+              if (this.currentResponseElement) {
+                this.currentResponseElement.appendChild(voiceIndicator);
+              }
+
+              this.audioManager.stopStreaming();
+
+              if (msg.data.audio && !msg.data.assistant_data?.url && !msg.data.url) {
+                this.audioManager.playFinalAudio(msg.data.audio);
+              }
+
+              this.enableInput();
+              this.currentResponseElement = null;
+              this.mediaBuffer = "";
+              setTimeout(() => this.showStatus('Ready', ''), 2000);
+              break;
+
+            case 'error':
+              this.streamingActive = false;
+              this.audioManager.stopAll();
+              this.showError(msg.data.message);
+              this.enableInput();
+              this.mediaBuffer = "";
+              break;
+
+            default:
+              if (msg.text) displayBotMessage(msg.text, msg.voice_model, msg.url, msg.assistant_data);
+              if (msg.audio && !msg.url && !msg.assistant_data?.url) this.audioManager.playFinalAudio(msg.audio);
+          }
+        } catch (err) {
+          console.error('Streaming message parse error:', err);
+        }
+      }
+
+      createNewResponseElement() {
+        const li = document.createElement("li");
+        li.className = "bot streaming";
+        li.innerHTML = "<b>AI:</b><br>";
+        document.getElementById("messages").appendChild(li);
+        this.currentResponseElement = li;
+        scrollToBottom();
+      }
+
+      async sendMessage(text, mode = 'friend', voiceModel = 'female1') {
+        if (!text.trim()) return;
+
+        this.stopCurrentStreaming();
+
+        displayUserMessage(text);
+        this.disableInput();
+        this.showStatus('Sending...', '');
+
+        this.audioManager.stopAll();
+
+        if (this.isConnected && this.dataChannel.readyState === 'open') {
+          try {
+            this.dataChannel.send(JSON.stringify({
+              text, mode, voice_model: voiceModel, stream: true, timestamp: new Date().toISOString()
+            }));
+            return { status: 'sent', method: 'webrtc' };
+          } catch (err) {
+            console.error('WebRTC send error:', err);
+            return this.sendMessageHTTP(text, mode, voiceModel);
+          }
+        } else {
+          return this.sendMessageHTTP(text, mode, voiceModel);
+        }
+      }
+
+      async sendMessageHTTP(text, mode = 'friend', voiceModel = 'female1') {
+        try {
+          const res = await fetch(`${SERVER_BASE}/webrtc/text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: this.userId,
+              text,
+              mode,
+              voice_model: voiceModel,
+              stream: false
+            })
+          });
+
+          const result = await res.json();
+
+          if (result.status !== 'streaming') {
+            if (result.text) displayBotMessage(result.text, result.voice_model, result.url, result.assistant_data);
+            if (result.audio && !result.url && !result.assistant_data?.url) {
+              this.audioManager.playFinalAudio(result.audio);
+            }
+            this.enableInput();
+            this.showStatus('Ready', '');
+          }
+
+          return result;
+        } catch (err) {
+          console.error('HTTP fallback error:', err);
+          this.showError('Failed to send message');
+          this.enableInput();
+          return { error: 'Failed to send message' };
+        }
+      }
+
+      updateConnectionStatus(connected) {
+        const statusEl = document.getElementById('connectionStatus');
+        statusEl.textContent = connected ? 'Connected (Streaming)' : 'Disconnected (HTTP)';
+        statusEl.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+      }
+
+      showStatus(msg, type = '') {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = msg;
+        statusEl.className = type ? `status ${type}` : 'status';
+      }
+
+      showError(msg) {
+        this.showStatus('Error: ' + msg, 'error');
+        setTimeout(() => this.showStatus('Ready', ''), 5000);
+      }
+
+      disableInput() {
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('messageInput').disabled = false;
+      }
+
+      enableInput() {
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('messageInput').disabled = false;
+      }
+
+      disconnect() {
+        this.audioManager.stopAll();
+        if (this.dataChannel) this.dataChannel.close();
+        if (this.peerConnection) this.peerConnection.close();
+        this.isConnected = false;
+        this.updateConnectionStatus(false);
+      }
+    }
+
+    // Enhanced message display merges media processing + assistant link
+    function displayBotMessage(msg, voiceModel, url = null, assistantData = null) {
+      const li = document.createElement("li");
+      li.className = "bot complete";
+
+      let processedMsg = processMessageForMedia(msg);
+
+      // Assistant URL handling
+      const finalUrl = assistantData?.url || url;
+      const urlType = assistantData?.type || 'general';
+      const metadata = assistantData?.metadata || {};
+
+      if (finalUrl) {
+        const linkText = getLinkTextForType(urlType, metadata);
+        processedMsg += `<br><br><a href="${finalUrl}" target="_blank" class="url-link ${urlType}">${linkText}</a>`;
+      }
+
+      li.innerHTML = "<b>AI:</b><br>" + processedMsg;
+
+      if (voiceModel) {
+        const voiceIndicator = document.createElement('span');
+        voiceIndicator.className = 'voice-indicator';
+        voiceIndicator.textContent = `Voice: ${voiceModel}`;
+        li.appendChild(voiceIndicator);
+      }
+
+      document.getElementById("messages").appendChild(li);
+      scrollToBottom();
+    }
+
+    function getLinkTextForType(urlType, metadata) {
+      switch (urlType) {
+        case 'youtube':
+          return `Watch "${metadata.search_terms || 'videos'}" on YouTube`;
+        case 'maps':
+          return `Navigate to ${metadata.destination || 'location'}`;
+        case 'realtime':
+          return `View latest information`;
+        case 'open':
+          return `Open ${metadata.site || 'website'}`;
+        default:
+          return 'Click here to open link';
+      }
+    }
+
+    function processMessageForMedia(msg) {
+      let processedMsg = formatMessage(msg);
+
+      const pdfRegex = /📄\s*\*\*PDF Generated Successfully!\*\*([\s\S]*?)(?=\n\n|$)/gi;
+
+      processedMsg = processedMsg.replace(pdfRegex, (match) => {
+        const filenameMatch = match.match(/📋\s*\*\*File:\*\*\s*([^\n]+)/);
+        const sizeMatch = match.match(/📊\s*\*\*Size:\*\*\s*([^\n]+)/);
+        const downloadMatch = match.match(/⬇️\s*\*\*Download:\*\*\s*([^\n]+)/);
+
+        const filename = filenameMatch ? filenameMatch[1].trim() : 'Generated PDF';
+        const size = sizeMatch ? sizeMatch[1].trim() : 'Unknown size';
+        const rawDownload = downloadMatch ? downloadMatch[1].trim() : '#';
+        const downloadUrl = decodeURIComponent(rawDownload)
+          .replace(/<br>|\\r|\\n/gi, '')
+          .replace(/\s+/g, '');
+
+        return `<div class="generated-media pdf-media">
+          <h4>📄 PDF Generated Successfully</h4>
+          <div class="pdf-preview">
+              <div class="pdf-icon">📄</div>
+              <div class="pdf-details">
+                  <div><strong>File:</strong> ${filename}</div>
+                  <div><strong>Size:</strong> ${size}</div>
+                  <div>
+                    <a href="${SERVER_BASE}${downloadUrl}" 
+                       class="download-link" 
+                       download="${filename}"
+                       onclick="handleDirectDownload(event, '${filename}')">
+                      ⬇️ Download ${filename}
+                    </a>
+                  </div>
+              </div>
+          </div>
+      </div>`;
+      });
+
+      const imageRegex = /📷\s*\*\*Generated.*?Image.*?\*\*:\s*`([^`]+)`/gi;
+      const diagramRegex = /📊\s*\*\*Generated.*?Diagram.*?\*\*:\s*`([^`]+)`/gi;
+
+      processedMsg = processedMsg.replace(imageRegex, (match, filename) => {
+        return `<div class="generated-media image-media">
+          <h4>📷 Generated Image</h4>
+          <img src="${SERVER_BASE}/generated/${filename}" 
+               alt="Generated Image" 
+               class="generated-image"
+               onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
+          <div>
+            <a href="${SERVER_BASE}/download/${filename}" 
+               class="download-link" 
+               download="${filename}"
+               onclick="handleDirectDownload(event, '${filename}')">
+              ⬇️ Download ${filename}
+            </a>
+          </div>
+      </div>`;
+      });
+
+      processedMsg = processedMsg.replace(diagramRegex, (match, filename) => {
+        return `<div class="generated-media diagram-media">
+          <h4>📊 Generated Diagram</h4>
+          <img src="${SERVER_BASE}/generated/${filename}" 
+               alt="Generated Diagram" 
+               class="generated-image"
+               onclick="openImageViewer('${SERVER_BASE}/generated/${filename}', '${filename}')">
+          <div>
+            <a href="${SERVER_BASE}/download/${filename}" 
+               class="download-link" 
+               download="${filename}"
+               onclick="handleDirectDownload(event, '${filename}')">
+              ⬇️ Download ${filename}
+            </a>
+          </div>
+      </div>`;
+      });
+
+      return processedMsg;
+    }
+
+    function handleDirectDownload(event, filename) {
+      event.preventDefault();
+
+      const url = event.currentTarget.href;
+      const a = document.createElement("a");
+      a.href = url;
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      showStatus(`Download started: ${filename}`, 'info', 3000);
+      console.log(`Direct download triggered: ${filename}`);
+    }
+
+    function openImageViewer(url, filename) {
+      const modal = document.createElement('div');
+      modal.className = 'image-viewer-modal';
+      modal.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 5000;
+        cursor: pointer;
+      `;
+
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.cssText = `
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+        border-radius: 8px;
+        cursor: default;
+      `;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.innerHTML = '✕';
+      closeBtn.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-size: 18px;
+        cursor: pointer;
+      `;
+
+      modal.appendChild(img);
+      modal.appendChild(closeBtn);
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+      closeBtn.addEventListener('click', () => modal.remove());
+
+      document.body.appendChild(modal);
+    }
+
+    function showStatus(message, type = '', duration = 0) {
+      const statusEl = document.getElementById('status');
+      if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.className = type ? `status ${type}` : 'status';
+
+        if (duration > 0) {
+          setTimeout(() => {
+            statusEl.textContent = 'Ready';
+            statusEl.className = 'status';
+          }, duration);
+        }
+      }
+    }
+
+    // File handling
+    function openFileDialog(fileType) {
+      currentFileType = fileType;
+      document.getElementById(fileType + 'Input').click();
+    }
+
+    document.getElementById("pdfInput").addEventListener("change", handleFileSelection);
+    document.getElementById("imageInput").addEventListener("change", handleFileSelection);
+    document.getElementById("audioInput").addEventListener("change", handleFileSelection);
+    document.getElementById("docxInput").addEventListener("change", handleFileSelection);
+    document.getElementById("excelInput").addEventListener("change", handleFileSelection);
+
+    function handleFileSelection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      currentFileData = file;
+      showFileUploadModal(file, currentFileType);
+    }
+
+    function showFileUploadModal(file, fileType) {
+      const modal = document.getElementById("fileUploadModal");
+      const preview = document.getElementById("filePreview");
+      const textArea = document.getElementById("fileInstructionText");
+
+      preview.innerHTML = '';
+      textArea.value = '';
+
+      if (fileType === 'image') {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.style.maxWidth = "200px";
+        img.style.maxHeight = "150px";
+        img.style.borderRadius = "8px";
+        preview.appendChild(img);
+      } else {
+        const fileInfo = document.createElement("div");
+        fileInfo.style.color = "#aaa";
+        const icons = {
+          'pdf': '📄',
+          'docx': '📝',
+          'excel': '📊',
+          'audio': '🎙️'
+        };
+        fileInfo.innerHTML = `
+          <div style="font-size:48px; margin-bottom:10px;">
+             ${icons[fileType] || '📎'}
+          </div>
+          <div><strong>${file.name}</strong></div>
+          <div>${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+        `;
+        preview.appendChild(fileInfo);
+      }
+
+      const placeholders = {
+        'pdf': 'Explain this PDF, summarize the document, or extract specific information...',
+        'image': 'What is written in this image? Explain this picture or analyze this image...',
+        'audio': 'Process this audio file, transcribe it, or respond to it...',
+        'excel': 'Analyze this spreadsheet data, create charts, or extract insights...',
+      };
+
+      textArea.placeholder = placeholders[fileType] || 'What would you like to do with this file?';
+      modal.style.display = "flex";
+    }
+
+    function cancelFileUpload() {
+      document.getElementById("fileUploadModal").style.display = "none";
+      currentFileData = null;
+      currentFileType = null;
+      document.getElementById("pdfInput").value = '';
+      document.getElementById("imageInput").value = '';
+      document.getElementById("audioInput").value = '';
+    }
+
+    async function processFileUpload() {
+      const instructionText = document.getElementById("fileInstructionText").value.trim();
+
+      if (!currentFileData) {
+        alert("No file selected!");
+        return;
+      }
+
+      document.getElementById("fileUploadModal").style.display = "none";
+      const userMessage = instructionText || `Uploaded ${currentFileType}: ${currentFileData.name}`;
+      displayUserMessage(userMessage);
+
+      let processingMessage = "";
+      if (currentFileType === 'image') {
+        processingMessage = "🔍 Analyzing image with multimodal AI...";
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(currentFileData);
+        img.style.maxWidth = "200px";
+        img.style.borderRadius = "12px";
+        const li = document.createElement("li");
+        li.className = "user";
+        li.appendChild(img);
+        document.getElementById("messages").appendChild(li);
+      } else if (currentFileType === 'docx') {
+        processingMessage = "📝 Processing Word document...";
+      } else if (currentFileType === 'excel') {
+        processingMessage = "📊 Processing Excel spreadsheet...";
+      } else if (currentFileType === 'pdf') {
+        processingMessage = "📄 Processing PDF document...";
+      } else if (currentFileType === 'audio') {
+        processingMessage = "🎙️ Transcribing audio...";
+      }
+
+      streamingClient.showStatus(processingMessage, 'thinking');
+
+      const formData = new FormData();
+      formData.append("file", currentFileData);
+      formData.append("user_id", user_id);
+      formData.append("mode", document.getElementById("mode").value);
+      formData.append("instruction", instructionText);
+
+      try {
+        const endpoint = `${SERVER_BASE}/upload/${currentFileType}`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.status === "success") {
+          let modelInfo = "";
+          displayBotMessage((data.reply || "File processed successfully.") + modelInfo);
+          streamingClient.showStatus('Complete', '');
+        } else {
+          displayBotMessage(`❌ ${currentFileType} processing failed: ` + (data.message || "Unknown error"));
+          streamingClient.showStatus('Error', 'error');
+        }
+      } catch (err) {
+        console.error(`${currentFileType} upload error:`, err);
+        displayBotMessage(`❌ ${currentFileType} upload failed`);
+        streamingClient.showStatus('Error', 'error');
+      } finally {
+        currentFileData = null;
+        currentFileType = null;
+        document.getElementById("pdfInput").value = '';
+        document.getElementById("imageInput").value = '';
+        document.getElementById("docxInput").value = '';
+        document.getElementById("excelInput").value = '';
+        document.getElementById("audioInput").value = '';
+      }
+    }
+
+    // Camera functions (kept from first file)
+    let cameraStreamTrack;
+
+    function openCamera() {
+      const modal = document.getElementById("cameraModal");
+      modal.style.display = "flex";
+
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          document.getElementById("cameraStream").srcObject = stream;
+          cameraStreamTrack = stream.getTracks()[0];
+        })
+        .catch(err => {
+          alert("Camera access denied: " + err.message);
+          modal.style.display = "none";
+        });
+    }
+
+    function closeCamera() {
+      const modal = document.getElementById("cameraModal");
+      modal.style.display = "none";
+      if (cameraStreamTrack) {
+        cameraStreamTrack.stop();
+      }
+    }
+
+    function capturePhoto() {
+      const video = document.getElementById("cameraStream");
+      const canvas = document.getElementById("cameraCanvas");
+      const context = canvas.getContext("2d");
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+
+        const file = new File([blob], "camera_photo.jpg", { type: "image/jpeg" });
+        currentFileData = file;
+        currentFileType = 'image';
+
+        closeCamera();
+        showFileUploadModal(file, 'image');
+      }, "image/jpeg", 0.8);
+    }
+
+    const attachBtn = document.getElementById("attachBtn");
+    const attachOptions = document.getElementById("attachOptions");
+
+    attachBtn.addEventListener("click", () => {
+      attachOptions.style.display =
+        attachOptions.style.display === "flex" ? "none" : "flex";
+    });
+
+    function hideOptions() {
+      attachOptions.style.display = "none";
+    }
+
+    const VOICE_DESCRIPTIONS = {
+      "female1": "Indian English - Expressive",
+      "female2": "US English - Natural",
+      "male": "US English - Clear"
+    };
+
+    let streamingClient, user_id;
+
+    async function setUsername() {
+      const name = document.getElementById("usernameInput").value.trim();
+      if (!name) {
+        alert("Enter your name");
+        return;
+      }
+
+      user_id = name.replace(/\s+/g, "_").toLowerCase();
+      document.getElementById("usernamePrompt").style.display = "none";
+      document.getElementById("chatUI").style.display = "block";
+
+      streamingClient = new INAIStreamingClient(user_id);
+      loadVoiceModels();
+    }
+
+    async function loadVoiceModels() {
+      try {
+        const response = await fetch(`${SERVER_BASE}/voices`);
+        const data = await response.json();
+        console.log('Available voices:', data.voices);
+      } catch (err) {
+        console.warn('Could not load voice models:', err);
+      }
+    }
+
+    function updateVoicePreview() {
+      const voiceModel = document.getElementById("voiceModel").value;
+      const preview = document.getElementById("voicePreview");
+      preview.textContent = VOICE_DESCRIPTIONS[voiceModel] || "Unknown voice";
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const sendBtn = document.getElementById("sendBtn");
+      const messageInput = document.getElementById("messageInput");
+      const mode = document.getElementById("mode");
+      const voiceModel = document.getElementById("voiceModel");
+
+      voiceModel.addEventListener('change', updateVoicePreview);
+      updateVoicePreview();
+
+      let messageTimeout = null;
+
+      function handleMessage() {
+        const text = messageInput.value.trim();
+        if (!text || !streamingClient) return;
+
+        if (messageTimeout) {
+          clearTimeout(messageTimeout);
+        }
+
+        messageTimeout = setTimeout(() => {
+          const switchMatch = text.toLowerCase().match(/^switch into (love|info|elder|friend)$/i);
+          if (switchMatch) {
+            const newMode = switchMatch[1].toLowerCase();
+            mode.value = newMode;
+            updateVoicePreview();
+            streamingClient.showStatus(`🔄 Mode changed to ${newMode}`, "status");
+            messageInput.value = "";
+            return;
+          }
+
+          const selectedMode = mode.value;
+          const selectedVoice = voiceModel.value;
+          messageInput.value = "";
+          streamingClient.sendMessage(text, selectedMode, selectedVoice);
+        }, 100);
+      }
+
+      sendBtn.onclick = handleMessage;
+      messageInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') sendBtn.click();
+      });
+
+      const enableAudio = async () => {
+        try {
+          if (window.streamingClient && window.streamingClient.audioManager) {
+            await window.streamingClient.audioManager.initAudioContext();
+            console.log('[Audio] Audio context initialized');
+          }
+        } catch (error) {
+          console.error('[Audio] Failed to initialize audio context:', error);
+        }
+        document.removeEventListener('click', enableAudio);
+        document.removeEventListener('touchstart', enableAudio);
+        document.removeEventListener('keydown', enableAudio);
+      };
+
+      document.addEventListener('click', enableAudio, { once: true });
+      document.addEventListener('touchstart', enableAudio, { once: true });
+      document.addEventListener('keydown', enableAudio, { once: true });
+    });
+
+    console.log('[Audio] Fixed audio streaming implementation loaded');
+
+    function displayUserMessage(msg) {
+      const li = document.createElement("li");
+      li.textContent = "You: " + msg;
+      li.className = "user";
+      document.getElementById("messages").appendChild(li);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const chatBox = document.getElementById("chat-box");
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function formatMessage(text) {
+      text = text.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${escapeHtml(code)}</code></pre>`);
+      text = text.replace(/^\s*\*\s(.+)$/gm, "<li>$1</li>");
+      text = text.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+      return text.replace(/\n/g, "<br>");
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        const lastDownloadLink = document.querySelector('.download-link');
+        if (lastDownloadLink) {
+          lastDownloadLink.click();
+          showStatus('Download initiated via keyboard shortcut', 'info', 2000);
+        }
+      }
+    });
+
+    window.addEventListener('beforeunload', function () {
+      if (streamingClient) streamingClient.disconnect();
+    });
+  </script>
+</body>
+
+</html>
